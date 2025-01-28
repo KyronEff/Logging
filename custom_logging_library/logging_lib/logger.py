@@ -43,7 +43,7 @@ class Logger:
         exception: bool =False):
         log_string = ""
         if self.configs.get("log_format", False).get("color", False):
-            log_string += (self.configs.get("error_map", {}).get(f"{error_level}", {}).get("color", "\033[0m")
+            log_string += (self.configs.get("error_map", {}).get(f"{error_level}", {}).get("color", "\033[0m"))
         if self.configs.get("log_format", False).get("timestamp", False):
             log_string += f"{datetime.now()}\n"
         if self.configs.get("log_format", False).get("level", False):
