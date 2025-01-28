@@ -1,0 +1,30 @@
+\033[0;32m2025-01-28 22:45:18.305184
+DEBUGConfigs: logging_lib\Configs\config.JSON
+\033[0;31m2025-01-28 22:45:18.305484
+ERRORThis is an error message that took way too long to program
+\033[0;32m2025-01-28 22:48:04.331035
+DEBUGConfigs: logging_lib\Configs\config.JSON
+\033[0;31m2025-01-28 22:48:04.331297
+ERRORThis is an error message that took way too long to program
+\033[0;32m2025-01-28 22:51:30.506135
+DEBUGConfigs: logging_lib\Configs\config.JSON
+\033[0;32m2025-01-28 22:51:51.140378
+DEBUGConfigs: logging_lib\Configs\config.JSON
+\033[0;32m2025-01-28 22:51:52.175870
+DEBUGConfigs: logging_lib\Configs\config.JSON
+\033[0;32m2025-01-28 22:51:52.689949
+DEBUGConfigs: logging_lib\Configs\config.JSON
+\033[0;32m2025-01-28 22:51:52.988147
+DEBUGConfigs: logging_lib\Configs\config.JSON
+\033[0;32m2025-01-28 22:51:53.064923
+DEBUGConfigs: logging_lib\Configs\config.JSON
+\033[0;32m2025-01-28 22:52:09.043816
+DEBUGConfigs: logging_lib\Configs\config.JSON
+\033[0;31m2025-01-28 22:52:09.044071
+ERRORThis is an error message that took way too long to program
+\033[0;32m2025-01-28 22:52:22.569260
+DEBUGConfigs: logging_lib\Configs\config.JSON
+\033[0;32m2025-01-28 22:52:25.493367
+DEBUGConfigs: logging_lib\Configs\config.JSON
+\033[0;32m2025-01-28 22:53:34.521668
+DEBUGConfigs: logging_lib\Configs\config.JSON
