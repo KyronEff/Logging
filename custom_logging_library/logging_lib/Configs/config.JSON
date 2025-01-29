@@ -1,6 +1,6 @@
 {   
     "log_format" : {
-    "color" : false,
+    "color" : true,
     "timestamp" : true,
     "message" : true,
     "level" : true        

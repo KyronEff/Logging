@@ -41,22 +41,23 @@ class Logger:
         error_message,
         error_level,
         exception: bool =False):
-        log_string = ""
+        log_string = []
         if self.configs.get("log_format", False).get("color", False):
-            log_string += (self.configs.get("error_map", {}).get(f"{error_level}", {}).get("color", "\033[0m"))
+            ansi_escape = (self.configs.get("error_map", {}).get(f"{error_level}", {}).get("color", "\033[0m")).encode().decode("unicode_escape")
+            log_string.append(ansi_escape)
         if self.configs.get("log_format", False).get("timestamp", False):
-            log_string += f"{datetime.now()}\n"
+            log_string.append(f"{datetime.now()}\n")
         if self.configs.get("log_format", False).get("level", False):
-            log_string += error_level + ""
+            log_string.append(error_level + " ")
         if self.configs.get("log_format", False).get("message", False):
-            log_string += error_message
+            log_string.append(error_message)
         if exception:
             print(f"Traceback: {traceback.format_exc()}")
         
-        log_string += "\033[0m"
+        log_string.append("\033[0m")
         if self.configs.get("output_config", False).get("console", False):
-            print(log_string)
-        return log_string
+            print(''.join(log_string))
+        return ''.join(log_string)
 	
     def log_to_file(self, file_name, log):
         try:
@@ -93,4 +94,4 @@ class Logger:
 logger = Logger()
 
 
-logger.critical_log("This is an error message that took way too long to program")
+logger.critical_log("This is an error message that took way too long to program", is_file=True, file='log.txt')
