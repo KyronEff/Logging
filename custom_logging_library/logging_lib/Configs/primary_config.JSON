@@ -14,7 +14,7 @@
         },
        
         "DEBUG" : {
-            "color" : "\\033[0;32m", 
+            "color" : "\\033[0;35m", 
             "level" : "DEBUG",
             "traceback" : true
         },
@@ -38,10 +38,17 @@
     },
 
     "file_config" : {
-        "log_file" : "log.txt",
-        "archive_folder" : "log_archives",
+        "log_file_directory" : "D:/GitHub/Repos/Logging/custom_logging_library/logging_lib/Logs",
+        "log_file_name" : "log.txt",
+        "archive_folder" : "log_archives"
+    },
+
+    "rotation_config" : {
         "log_rotation" : true,
-        "max_byte_size" : 5242880
+        "size_rotation" : true,
+        "max_byte_size" : 5242880,
+        "time_rotation" : false,
+        "max_day_length" : 1
     },
 
     "output_config" : {
