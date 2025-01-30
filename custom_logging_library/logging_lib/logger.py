@@ -3,6 +3,74 @@ from datetime import datetime, timedelta
 
 class Logger:
     
+    FALLBACK_CONFIGURATION = {
+          
+    "log_format" : {
+    "color" : True,
+    "timestamp" : True,
+    "message" : True,
+    "level" : True  
+          
+    },
+
+    "error_map" : {
+        
+        "INFO" : {
+            
+            "color" : "\\033[0;34m",
+            "level" : "INFO", 
+            "traceback" : False
+            
+        },
+       
+        "DEBUG" : {
+            "color" : "\\033[0;32m", 
+            "level" : "DEBUG",
+            "traceback" : True
+        },
+
+        "ERROR" : {
+            
+            "color" : "\\033[0;31m", 
+            "level" : "ERROR", 
+            "traceback" : False
+            
+        }, 
+
+        "WARNING" : {
+            
+            "color" : "\\033[1;33m", 
+            "level" : "WARNING", 
+            "traceback" : True
+            
+        },
+
+        "CRITICAL" : {
+            
+            "color" : "\\033[1;35m", 
+            "level" : "CRITICAL", 
+            "traceback" : True
+            
+            }
+    },
+
+    "file_config" : {
+        
+        "log_file" : "log.txt",
+        "archive_folder" : "log_archives",
+        "log_rotation" : True,
+        "max_byte_size" : 5242880
+        
+    },
+
+    "output_config" : {
+        
+        "console" : True,
+        "file" : True
+        
+    }
+}
+    
     # initialization function
     
     def __init__(self, 
@@ -14,40 +82,31 @@ class Logger:
     # config loading
  
     def get_configs(self, 
-                    config_obj, 
-                    default_config_obj
+                    primary_config_obj, 
                     ):
-        
-        error_types = (OSError, json.JSONDecodeError, ValueError)
-        
-        try:
-            
 
-            with open(config_obj, 'r') as file:
-                config = json.load(file)
-                    
-                if self.validate_keys(config):
-                    return config
-                raise RuntimeError(f"Invalid configuration found in fallback config file. {default_config_obj}")
-        except error_types as error:
-            
-            self.info_log(f"An error occured whilst loading the primary configuration file.[{config_obj}]\nAttempting to access the fallback configuration file.", exception=error)
-            
-        try:
-            
-            with open(default_config_obj, 'r') as file:
-                config = json.load(file)
+        config = primary_config_obj
+              
+        loaded_config = self.load_config(config)
+        if loaded_config:
+            return loaded_config
+        self.debug_log(f"Failed to load {config}.")
                 
-            if self.validate_keys(config):
-                self.info_log("Default configuration file loaded successfully.")
-                return config
-            raise RuntimeError(f"Invalid configuration found in fallback config file. {default_config_obj}")
-            
-        except error_types as error:
-            
-            self.critical_log(f"An error occured whilst loading the fallback configuration file [{default_config_obj}]", exception=error)
-            raise RuntimeError("A valid configuration file could not be accessed")
+        raise RuntimeError("Both primary and fallback configuration files failed to load")
         
+    def load_config(self,
+                    config_path):
+            
+            try:
+                
+                with open(config_path, 'r') as config_file:
+                    return json.load(config_file)
+            
+            except (OSError, json.JSONDecodeError) as error:
+            
+                self.debug_log(f"Failed to open config file from {config_path}", exception=error)
+                return None    
+            
     def validate_keys(self, 
                       config
                       ):
@@ -74,7 +133,7 @@ class Logger:
             
             self.debug_log(f"Invalid typing for 'log_format': Expected [dict] type", exception=error)
             return False
-            
+     
     #file handling functions
  
     def log_to_file(self, 
@@ -172,7 +231,7 @@ class Logger:
             exception =None
             ):
         
-        log_format = self.configs.get("log_format")
+        log_format = self.configs.get("log_format", {})
         
         string_components = {
             'color' : log_format.get("color", False),
@@ -280,7 +339,8 @@ class Logger:
             
             self.debug_log("An error occurred during logging", exception =error)
 		
-    def critical_log(self, message, 
+    def critical_log(self, 
+                     message, 
                      is_file: bool =False, 
                      file_path =None, 
                      exception =None
