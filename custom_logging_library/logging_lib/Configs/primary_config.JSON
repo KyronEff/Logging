@@ -37,13 +37,13 @@
             "traceback" : true}
     },
 
-    "file_config" : {
+    "file_configs" : {
         "log_file_directory" : "D:/GitHub/Repos/Logging/custom_logging_library/logging_lib/Logs",
-        "log_file_name" : "log.txt",
+        "log_file_path" : "log.txt",
         "archive_folder" : "log_archives"
     },
 
-    "rotation_config" : {
+    "rotation_configs" : {
         "log_rotation" : true,
         "size_rotation" : true,
         "max_byte_size" : 5242880,
