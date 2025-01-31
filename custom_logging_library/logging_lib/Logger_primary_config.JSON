@@ -1,5 +1,5 @@
 {
-    "log_format": {
+    "log_components": {
         "color": true,
         "timestamp": true,
         "message": true,
@@ -32,12 +32,12 @@
             "traceback": true
         }
     },
-    "file_configs": {
-        "log_file_directory": "D:/GitHub/Repos/Logging/custom_logging_library/logging_lib/Logs",
+    "file_locations": {
+        "log_file_directory": "{CURRENT_DIR}",
         "log_file_path": "log.txt",
         "archive_folder": "log_archives"
     },
-    "rotation_config": {
+    "log_rotation": {
         "log_rotation": true,
         "size_rotation": true,
         "max_byte_size": 5242880,
@@ -46,6 +46,7 @@
     },
     "output_config": {
         "console": true,
-        "file": true
+        "file": true,
+        "debug_logs": true
     }
 }
