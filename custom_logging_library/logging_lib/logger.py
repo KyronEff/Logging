@@ -46,7 +46,7 @@ class Logger:
     },
 
     "file_configs" : {
-        "log_file_directory" : "D:/GitHub/Repos/Logging/custom_logging_library/logging_lib/Logs",
+        "log_file_directory" : "__file__",
         "log_file_path" : "log.txt",
         "archive_folder" : "log_archives"
     },
@@ -95,24 +95,24 @@ class Logger:
             
         except (OSError, json.JSONDecodeError) as error:
             
-            self.general_log("Config file could not be accessed, or contains malformed data. Using fallback configuration.", traceback=error, override=True)
+            self.general_log("Config file could not be accessed, or contains malformed data. Using fallback configuration.", exception_traceback=error, override=True)
             return Logger.FALLBACK_CONFIGURATION
 
     # file handling functions
  
     def log_to_file(self, 
-                    file_name, 
+                    file_path, 
                     log
                     ):
         
         try:
             
-            with open(file_name, 'a') as file:
+            with open(file_path, 'a') as file:
                 file.write(log + '\n')
                 
         except OSError as error:
             
-            self.general_log("Assigned file could not be accessed.", traceback=error, override=True)
+            self.general_log("Assigned file could not be accessed.", exception_traceback=error, override=True)
             return None
 
     def log_rotation(self
@@ -132,7 +132,7 @@ class Logger:
                 if size_rotation:
                     self.check_size_rotation()
         except OSError as error:
-            self.general_log("Log rotation could not continue and is unavailable", traceback=error)
+            self.general_log("Log rotation could not continue and is unavailable", exception_traceback=error)
         
     def check_size_rotation(self
                             ):
@@ -162,7 +162,7 @@ class Logger:
                         
         except OSError as error:
             
-            self.general_log("Size rotation could not be determined and is unavailable", traceback=error)
+            self.general_log("Size rotation could not be determined and is unavailable", exception_traceback=error)
             return False
 
     def check_time_rotation(self
@@ -193,7 +193,7 @@ class Logger:
                         
         except OSError as error:
             
-            self.general_log("Time rotation could not be determined and is unavailable", traceback=error)
+            self.general_log("Time rotation could not be determined and is unavailable", exception_traceback=error)
             return False
 
     # log function
@@ -243,14 +243,14 @@ class Logger:
     
     def general_log(self,
                    message,
-                   traceback = None,
+                   exception_traceback = None,
                    override = False
                    ):
         
         if not hasattr(self, 'configs') or override and not self.configs.get("output_config", True).get("debug_logs", True):
             print(f"\033[1;37m[GENERAL] {message}")
-            if traceback:
-                print(f"\033[0mTraceback: {traceback}")
+            if exception_traceback:
+                print(f"\033[0mTraceback: {exception_traceback}")
  
     def info_log(self, 
                  message, 
@@ -263,12 +263,18 @@ class Logger:
             log_string = self.log(message, 'INFO', exception)
                 
             if is_file:
-                file_path = self.configs.get("log_file_path")
-                self.log_to_file(file_path, log_string)
+                file_dir = self.configs.get("file_configs", {}).get("log_file_directory", "")
+                file_path = self.configs.get("file_configs", {}).get("log_file_path", "")
+                full_path = os.path.join(file_dir, file_path)
+
+                os.makedirs(file_dir, exist_ok = True)
+
+                with open(full_path, 'a') as log_file:
+                    log_file.write(log_string + "\n")
+
+        except OSError as error:
             
-        except Exception as error:
-            
-            self.general_log("An error occurred during logging", traceback = error)
+            self.general_log("An error occurred during logging", exception_traceback = error)
 		 
     def debug_log(self, 
                   message, 
@@ -286,7 +292,7 @@ class Logger:
             
         except Exception as error:
             
-            self.critical_log("Debug log is invalid. Consider checking your config file", exception = error)
+            self.critical_log("Debug log is invalid. Consider checking your config file", exception_traceback = error)
         	
     def error_log(self, 
                   message, 
@@ -304,7 +310,7 @@ class Logger:
             
         except Exception as error:
             
-            self.general_log("An error occurred during logging", traceback = error)
+            self.general_log("An error occurred during logging", exception_traceback = error)
 		
     def warning_log(self, 
                     message, 
@@ -322,7 +328,7 @@ class Logger:
                 
         except Exception as error:
             
-            self.general_log("An error occurred during logging", traceback = error)
+            self.general_log("An error occurred during logging", exception_traceback = error)
 		
     def critical_log(self, 
                      message, 
@@ -338,8 +344,8 @@ class Logger:
             if is_file and file_path:
                 self.log_to_file(file_path, log_string)
         
-        except Exception as error:
+        except OSError as error:
             
-            self.general_log("An error occurred during logging", traceback = error)
+            self.general_log("An error occurred during logging", exception_traceback = error)
                     
 logger = Logger()
