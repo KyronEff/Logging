@@ -9,7 +9,7 @@
         "INFO": {
             "color": "\\033[0;34m",
             "level": "INFO",
-            "traceback": false
+            "traceback": true
         },
         "DEBUG": {
             "color": "\\033[0;35m",
