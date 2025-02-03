@@ -3,6 +3,9 @@ import os
 import json
 import random
 from datetime import datetime, timedelta
+import asyncio
+import signal
+import sys
 
 class Logger:
 
@@ -61,21 +64,11 @@ class Logger:
     def __init__(self, 
                  config_path=None, 
                  ):
-        """
-        Initializes Logger class, loads the configuration file from the specified path. If config_path is None, the default 'Logger_primary_config.JSON' is used. 
-
-        Args:
-            config_path (str, optional): The path to the configuration file. If None, the default 'Logger_primary_config.JSON' will be loaded.
-            If 'Logger_primary_config.JSON' doesn't exist, it will be created in the same directory as the current script with the fallback configuration.
-            Missing or malformed data will default back to the fallback configuration.
-        """
 
         if config_path is None:
             config_path = os.path.join(os.path.dirname(__file__), 'Logger_primary_config.JSON')
             
         self.configs = self.get_config_map(config_path)
-
-        self.validate_log_path()
 
         self.validate_config_types()
 
@@ -85,37 +78,65 @@ class Logger:
         self.LOG_ROTATION = self.configs.get("log_rotation")
         self.OUTPUT_CONFIG = self.configs.get("output_config")
 
+        self.validate_log_path()
+
+        self.exit_signal = asyncio.Event()
+
+        self.create_signals(self.exit_cleanup)
+
+        bg_loop = asyncio.get_event_loop()
+
+        self.bg_task = bg_loop.create_task(self.background_rotation_check())
+
     def validate_log_path(self):
-        path = self.configs["file_locations"]["log_file_path"]
+
+        path = self.FILE_LOCATIONS["log_file_path"]
 
         if path == "{CURRENT_PATH}":
-            path = os.path.join(os.path.dirname(__file__), 'log.txt')
+            path = f"{os.path.dirname(__file__)}log.txt"
 
-        if os.path.isdir(path):
+        try:
 
-            os.makedirs(path, exist_ok=True)
+            with open(path, 'a', encoding='utf-8'):
+                self.configs["file_locations"]["log_file_path"] = path
+                return self.internal_log(f"Log file found or created. Using {path}.")
 
-        if os.path.isfile(path):
-            print("Bazinga")
+        except(FileNotFoundError, PermissionError) as error:
 
-        if not os.path.exists(path):
-            self.configs["output_config"]["file"] = False
-            return self.internal_log("Specified path does not exist, disabling file logging")
+            self.OUTPUT_CONFIG["file"] = False
+            self.internal_log(f"Path [{path}] to the log file couldn't be found, or can't be accessed. Disabled file logging", exception_message=error)
+
+    async def background_rotation_check(self):
+        while not self.exit_signal.is_set():
+            self.rotate_log_path()
+            await asyncio.sleep(15)
+
+    def create_signals(self, handler):
+        signal.signal(signal.SIGINT, handler)
+        signal.signal(signal.SIGTERM, handler)
+
+    def exit_cleanup(self, num = None, frame = None):
+
+        self.exit_signal.set()
+
+        if hasattr(self, 'bg_task') and self.bg_task:
+            self.bg_task.cancel()
+            try:
+                asyncio.get_event_loop().run_until_complete(self.bg_task)
+            
+            except asyncio.CancelledError as error:
+                self.internal_log("An error occured when attempting a graceful exit", exception_message=error)
+
+        asyncio.get_event_loop().stop()
+
+        sys.exit(0)
+
         
-        self.configs["file_locations"]["log_file_path"] = path
 
     # config loading
  
     def get_config_map(self, config_path):
-        """
-        Returns the JSON object from a specified file path. If the file doesn't exist, a fallback configuration is returned and a new file is created with the fallback configuration.
-
-        Args:
-            config_path (str): Specifies a file path where the configuration file is stored.
-
-        Returns:
-            dict: A dictionary containing configuration settings.
-        """
+         
         try:
             
             if os.path.exists(config_path):
@@ -158,36 +179,6 @@ class Logger:
 
     # file handling functions
  
-    def rotate_log_file(self
-                     ):
-        """
-        Handles log rotation.
-        """
-
-        try:
-            
-            log_rotation = self.LOG_ROTATION.get("log_rotation", False)
-            
-            if log_rotation:
-                
-                time_rotation = self.LOG_ROTATION.get("time_rotation", False)
-                size_rotation = self.LOG_ROTATION.get("size_rotation", False)
-
-            
-                if time_rotation:
-                    self.check_time_rotation()
-
-                if size_rotation:
-                    self.check_size_rotation()
-
-            else:
-                
-                self.internal_log("Log rotation is disabled in the configuration.")
-
-        except (KeyError, OSError) as error:
-            
-            self.internal_log("Log rotation could not continue. Reason: ", exception_traceback=error)
-        
     def check_rotation_condition(self, full_path, max_size, max_time):
 
             if os.path.getsize(full_path) >= max_size or datetime.now() - datetime.fromtimestamp(os.path.getctime(full_path)) >= timedelta(days=max_time):
@@ -197,6 +188,8 @@ class Logger:
     
     def rotate_log_path(self):
 
+        self.internal_log("Running rotation check")
+
         if self.check_rotation_condition(self.FILE_LOCATIONS["log_file_path"], 
                                          self.LOG_ROTATION["max_byte_size"], 
                                          self.LOG_ROTATION["max_day_length"]
@@ -204,23 +197,41 @@ class Logger:
             
             try:
             
-                log_file_path = os.path.abspath(self.FILE_LOCATIONS["log_file_path"])
-                archive_name = f'log_archive {datetime.now().strftime("%d_%m_%y %H_%M_%S")}_{random.randint(1000, 9999)}.txt'
-
-                if not os.path.exists(log_file_path):
-                    self.internal_log(f"Log file in {log_file_path} does not exist, aborting file rotation.")
-                    return
+                log_file_abspath = self.FILE_LOCATIONS["log_file_path"]
                 
-                os.rename(log_file_path, archive_name)
-
-                self.internal_log(f"Log file created. Archived as {archive_name}. Archived file size: {os.path.getsize(archive_name)}, Archived file age: {os.path.getmtime(archive_name)}.")
-
-                with open(self.FILE_LOCATIONS["log_file_path"], 'a') as new_log_file:
-                    pass
+                self.rename_rotating_log(log_file_abspath)
+                
+                self.create_fresh_log(log_file_abspath)
 
             except OSError as error:
                 self.internal_log("An error occured whilst attempting log rotation.", exception_message=error)
             
+    def rename_rotating_log(self, log_file_path):
+        archive_name = f'log_archive {datetime.now().strftime("%d_%m_%y %H_%M_%S")}_{random.randint(1000, 9999)}.txt'
+
+
+        try:
+
+            with open(log_file_path, 'a', encoding='utf-8'):
+                    
+                os.rename(log_file_path, archive_name)
+                self.internal_log(f"Log file created. Archived as {archive_name}. Archived file size: {os.path.getsize(archive_name)}, Archived file age: {os.path.getmtime(archive_name)}.")
+
+        except (FileNotFoundError, PermissionError) as error:
+
+            self.internal_log("Failed to rename full or old log file", exception_message=error)
+
+    def create_fresh_log(self, log_file_path):
+
+        try:
+
+            with open(log_file_path, 'a') as new_log_file:
+                self.internal_log(f"Created new file as {new_log_file}")
+
+        except (FileNotFoundError, PermissionError) as error:
+
+            self.internal_log(f"A new file couldn't be created at {log_file_path}.", exception_message=error)
+
     # log functions
  
     def build_log(self, message, error_level, exception_message = None):
@@ -257,7 +268,7 @@ class Logger:
 
         try:
 
-            os.makedirs(file_path, exist_ok=True)
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
             with open (file_path, 'a', encoding='utf-8') as log_file:
                 log_file.write(log+"\n")
@@ -388,4 +399,4 @@ class Logger:
 
 logger = Logger()
 
-logger.info_log("", is_file=True)
+logger.info_log("CUMCUMCUMCUM", is_file=True)
