@@ -9,7 +9,7 @@
         "INFO": {
             "color": "\\033[0;34m",
             "level": "INFO",
-            "traceback": true
+            "traceback": false
         },
         "DEBUG": {
             "color": "\\033[0;35m",
@@ -33,11 +33,9 @@
         }
     },
     "file_locations": {
-        "log_file_directory": "{CURRENT_DIR}",
-        "log_file_path": "log.txt",
-        "archive_folder": "log_archives"
+        "log_file_path": "{CURRENT_PATH}"
     },
-    "log_rotation": {
+    "log_rotation_configs": {
         "log_rotation": true,
         "size_rotation": true,
         "max_byte_size": 5242880,
