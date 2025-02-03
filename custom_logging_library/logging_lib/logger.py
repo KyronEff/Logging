@@ -75,8 +75,7 @@ class Logger:
             
         self.configs = self.get_config_map(config_path)
 
-        if self.configs["file_locations"]["log_file_path"] == '{CURRENT_PATH}':
-            self.configs["file_locations"]["log_file_path"] = os.path.abspath(os.path.join(os.path.dirname(__file__), 'log.txt'))
+        self.validate_log_path()
 
         self.validate_config_types()
 
@@ -85,6 +84,25 @@ class Logger:
         self.FILE_LOCATIONS = self.configs.get("file_locations")
         self.LOG_ROTATION = self.configs.get("log_rotation")
         self.OUTPUT_CONFIG = self.configs.get("output_config")
+
+    def validate_log_path(self):
+        path = self.configs["file_locations"]["log_file_path"]
+
+        if path == "{CURRENT_PATH}":
+            path = os.path.join(os.path.dirname(__file__), 'log.txt')
+
+        if os.path.isdir(path):
+
+            os.makedirs(path, exist_ok=True)
+
+        if os.path.isfile(path):
+            print("Bazinga")
+
+        if not os.path.exists(path):
+            self.configs["output_config"]["file"] = False
+            return self.internal_log("Specified path does not exist, disabling file logging")
+        
+        self.configs["file_locations"]["log_file_path"] = path
 
     # config loading
  
@@ -370,4 +388,4 @@ class Logger:
 
 logger = Logger()
 
-logger.info_log("Cunt", exception=MemoryError("Error message"), is_file=True)
+logger.info_log("", is_file=True)
