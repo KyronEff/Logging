@@ -44,7 +44,6 @@
     },
     "output_config": {
         "console": true,
-        "file": true,
-        "debug_logs": true
+        "file": true
     }
 }
