@@ -2,6 +2,7 @@
     "log_components": {
         "color": true,
         "timestamp": true,
+        "timestamp_format": "%Y-%m-%d / %Hh-%Mm-%Ss",
         "message": true,
         "level": true
     },
@@ -36,14 +37,14 @@
         "log_file_path": "{CURRENT_PATH}"
     },
     "log_rotation_configs": {
-        "log_rotation": true,
+        "log_rotation": false,
         "size_rotation": true,
-        "max_byte_size": 5242880,
+        "max_file_size": 5242880,
         "time_rotation": false,
-        "max_day_length": 1
+        "max_file_age": 1
     },
-    "output_config": {
-        "console": 5,
-        "file": 5
+    "output_configs": {
+        "terminal": true,
+        "file": true
     }
 }

@@ -7,206 +7,193 @@ import asyncio
 import signal
 import sys
 
+
 class Logger:
 
  # initialization function
-    
-    def __init__(self, 
-                 config_path=None, 
-                 ):
-         
-        self.configs = ConfigHandler(config_path).get_valid_config()
+    _compiler = None
+    _output = None
 
-        self.LOG_COMPONENTS = self.configs.get("log_components")
-        self.ERROR_MAP = self.configs.get("error_map")
-        self.FILE_LOCATIONS = self.configs.get("file_locations")
-        self.LOG_ROTATION = self.configs.get("log_rotation")
-        self.OUTPUT_CONFIG = self.configs.get("output_config")
+    def __init__(self, config_path=None):
 
-    async def background_rotation_check(self):
-        while not self.exit_signal.is_set():
-            self.rotate_log_path()
-            await asyncio.sleep(15)
+        self.configs = HandleConfigs(config_path).get_valid_config()
 
-    def create_signals(self, handler):
-        signal.signal(signal.SIGINT, handler)
-        signal.signal(signal.SIGTERM, handler)
+        if not Logger._compiler:
+            self._compiler = CompileLog(
+                self.configs["error_map"], self.configs["log_components"])
+        if not Logger._output:
+            self._output = HandleOutput(self.configs["output_configs"])
 
-    def exit_cleanup(self, num = None, frame = None):
+    def log(self, message, level, exception_traceback=None):
 
-        self.exit_signal.set()
-
-        if hasattr(self, 'bg_task') and self.bg_task:
-            self.bg_task.cancel()
-            try:
-                asyncio.get_event_loop().run_until_complete(self.bg_task)
-            
-            except asyncio.CancelledError as error:
-                self.internal_log("An error occured when attempting a graceful exit", exception_traceback=error)
-
-        self.loop.stop()
-        self.loop.close()
-
-        sys.exit(0)
- 
-    # file handling functions
- 
-
-    # log functions
- 
-    def build_log(self, message, error_level, exception_traceback = None):
+        message = self._compiler.build_log(message, level, exception_traceback)
+        self._output.handle_log_output(
+            message, self.configs["file_locations"]["log_file_path"])
 
 
-        if error_level in self.ERROR_MAP:
+class CompileLog:
+
+    def __init__(self, error_map, log_components):
+
+        self.error_map = error_map
+        self.log_components = log_components
+
+    def build_log(self, message, error_level, exception_traceback=None):
+
+        if error_level in self.error_map:
 
             return ''.join([
-                self.get_color(error_level) if self.LOG_COMPONENTS["color"] else "",
-                self.get_timestamp() if self.LOG_COMPONENTS["timestamp"] else "",
-                f"[{error_level}] " if self.LOG_COMPONENTS["level"] else "",
-                f"{message} " if self.LOG_COMPONENTS["message"] else "",
-                self.get_traceback(exception_traceback) if self.ERROR_MAP[error_level]["traceback"] and exception_traceback else ""
+                FormatComponents.get_color(
+                    self.error_map, error_level) if self.log_components["color"] else "",
+                FormatComponents.get_timestamp(
+                    self.log_components) if self.log_components["timestamp"] else "",
+                f"[{error_level}] " if self.log_components["level"] else "",
+                f"{message} " if self.log_components["message"] else "",
+                FormatComponents.get_traceback(
+                    exception_traceback) if self.error_map[error_level]["traceback"] and exception_traceback else ""
             ])
 
+        return f"[{error_level}] {message}{f"\n{FormatComponents.get_traceback(exception_traceback)}" if exception_traceback else ""}"
 
-        return f"[{error_level}] {message}{f"\n{self.get_traceback(exception_traceback)}" if exception_traceback else ""}"
 
-    def log(self, message, error_level, is_file = False, exception_traceback = None):
+class FormatComponents:
 
-        message = self.build_log(message, error_level, exception_traceback)
-        print(message)
+    @staticmethod
+    def get_color(error_map, error_level):
 
-        try:
+        return error_map[error_level]["color"].encode().decode("unicode_escape")
 
-            if is_file:
-            
-                self.log_to_file(message)
+    @staticmethod
+    def get_timestamp(log_components):
 
-        except (FileNotFoundError, PermissionError) as error:
-               
-               self.internal_log("Encountered an error during logging", exception_traceback=error)
+        return f"[{datetime.now().strftime(log_components["timestamp_format"])}]\n"
 
-    def log_to_file(self, log):
+    @staticmethod
+    def get_traceback(error):
 
-        file_path = self.FILE_LOCATIONS["log_file_path"]
-
-        try:
-
-            with open (file_path, 'a', encoding='utf-8') as log_file:
-                log_file.write(log+"\n")
-
-        except (PermissionError, FileNotFoundError) as error:
-            self.internal_log(f"An error occured when appending log to file: {file_path}", exception_traceback=error)
-    
-    # log construction functions
-
-    def get_color(self, error_level):
-        return (self.ERROR_MAP.get(f"{error_level}", {}).get("color", "\033[0m")).encode().decode("unicode_escape")
-
-    def get_timestamp(self):
-        return f"[{datetime.now().strftime('%Y-%m-%d / %Hh-%Mm-%Ss')}]\n"
-    
-    def get_traceback(self, error):
         if error is None:
-            self.internal_log("No error was provided")
+
+            HandleOutput.log_internal_message("No error was provided")
             return ""
-        
+
         if isinstance(error, type) and issubclass(error, Exception):
+
             error = error("No other information provided")
 
         if not hasattr(error, '__traceback__'):
+
             return "\nNo traceback provided"
-        
 
         return "\n\033[0m" + ''.join(traceback.format_exception(None, error, error.__traceback__))
-    
-    # log level functions
+
+
+class HandleOutput:
+
+    def __init__(self, output_config):
+        self.terminal_output = output_config["terminal"]
+        self.file_output = output_config["file"]
+
+    def handle_log_output(self, message, file):
+
+        if self.terminal_output:
+
+            print(message)
+
+        if self.file_output:
+
+            with open(file, 'a', encoding='utf-8') as log_file:
+                log_file.write(f"{message}\n")
+
     @staticmethod
-    def internal_log(message,
-                   exception_traceback = None,
-                   ):
-        
+    def log_internal_message(message, exception_traceback=None):
 
         print(f"\033[1;37m[INTERNAL] {message}")
 
         if exception_traceback:
-            print(f"{traceback.print_exception(exception_traceback)}")  
 
-class ConfigHandler:
+            print(
+                f"{traceback.format_exception(None, exception_traceback, exception_traceback.__traceback__)}")
+
+
+class HandleConfigs:
 
     FALLBACK_CONFIGURATION = {
 
-    "log_components": {
-        "color": True,
-        "timestamp": True,
-        "message": True,
-        "level": True
-    },
-
-    "error_map": {
-        "INFO": {
-            "color": "\\033[0;34m",
-            "level": "INFO",
-            "traceback": False
+        "log_components": {
+            "color": True,
+            "timestamp": True,
+            "timestamp_format": r"%Y-%m-%d / %Hh-%Mm-%Ss",
+            "message": True,
+            "level": True
         },
 
-        "DEBUG": {
-            "color": "\\033[0;35m",
-            "level": "DEBUG",
-            "traceback": True
+        "error_map": {
+            "INFO": {
+                "color": "\\033[0;34m",
+                "level": "INFO",
+                "traceback": False
+            },
+
+            "DEBUG": {
+                "color": "\\033[0;35m",
+                "level": "DEBUG",
+                "traceback": True
+            },
+
+            "ERROR": {
+                "color": "\\033[0;31m",
+                "level": "ERROR",
+                "traceback": False
+            },
+
+            "WARNING": {
+                "color": "\\033[1;33m",
+                "level": "WARNING",
+                "traceback": True
+            },
+
+            "CRITICAL": {
+                "color": "\\033[1;35m",
+                "level": "CRITICAL",
+                "traceback": True
+            }
+
         },
 
-        "ERROR": {
-            "color": "\\033[0;31m",
-            "level": "ERROR",
-            "traceback": False
+        "file_locations": {
+
+            "log_file_path": "{CURRENT_PATH}"
+
         },
 
-        "WARNING": {
-            "color": "\\033[1;33m",
-            "level": "WARNING",
-            "traceback": True
+        "log_rotation_configs": {
+
+            "log_rotation": False,
+            "size_rotation": True,
+            "max_file_size": 5242880,
+            "time_rotation": False,
+            "max_file_age": 1
+
         },
 
-        "CRITICAL": {
-            "color": "\\033[1;35m",
-            "level": "CRITICAL",
-            "traceback": True
+        "output_configs": {
+
+            "terminal": True,
+            "file": True
+
         }
-
-    },
-
-    "file_locations": {
-
-        "log_file_path": "{CURRENT_PATH}"
-
-    },
-
-    "log_rotation_configs": {
-
-        "log_rotation": True,
-        "size_rotation": True,
-        "max_byte_size": 5242880,
-        "time_rotation": False,
-        "max_day_length": 1
-
-    },
-
-    "output_config": {
-
-        "console": True,
-        "file": True
-
     }
-}
 
     def __init__(self, config_path):
 
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(__file__), 'Logger_primary_config.JSON')
+            config_path = os.path.join(os.path.dirname(
+                __file__), 'Logger_primary_config.JSON')
 
-        Logger.internal_log(f"Attempting to load configs from {config_path}")
+        HandleOutput.log_internal_message(
+            f"Attempting to load configs from {config_path}")
         self.configs = self.get_config_map(config_path)
-        Logger.internal_log("Initialising configuration file")
+        HandleOutput.log_internal_message("Initialising configuration file")
 
     def get_valid_config(self):
 
@@ -215,72 +202,72 @@ class ConfigHandler:
         return self.configs
 
     def get_config_map(self, config_path):
-         
+
         try:
-            
-            if os.path.exists(config_path):
 
-                with open(config_path, 'r') as config:
+            with open(config_path, 'r') as config:
 
-                    Logger.internal_log("Custom config file successfully loaded")
-                    return json.load(config)
-            
-            else:
+                HandleOutput.log_internal_message(
+                    "Custom config file successfully loaded")
+                return json.load(config)
 
-                with open(config_path, 'w') as config_file:
+        except (FileNotFoundError, PermissionError, json.JSONDecodeError):
 
-                    Logger.internal_log("Creating config file with default configurations as 'Logger_primary_config'")
-                    json.dump(ConfigHandler.FALLBACK_CONFIGURATION, config_file, indent=4)
+            with open(config_path, 'w') as config_file:
 
-                return ConfigHandler.FALLBACK_CONFIGURATION
-            
-        except (OSError, json.JSONDecodeError) as error:
-            
-            Logger.internal_log("Config file could not be accessed, or contains malformed data. Using fallback configuration.", exception_traceback=error)
-            return ConfigHandler.FALLBACK_CONFIGURATION
+                HandleOutput.log_internal_message(
+                    f"Specified config file could not be found or accessed.\nAttempting to create a file with default configurations as 'Logger_primary_config.JSON' at {config_path}.")
+                json.dump(HandleConfigs.FALLBACK_CONFIGURATION,
+                          config_file, indent=4)
+
+            return HandleConfigs.FALLBACK_CONFIGURATION
 
     def validate_config_types(self, configs=None):
 
         if configs is None:
             configs = self.configs
 
-        FALLBACK = ConfigHandler.FALLBACK_CONFIGURATION
+        FALLBACK = HandleConfigs.FALLBACK_CONFIGURATION
 
         for key, value in configs.items():
-            fallback = FALLBACK[key]
 
             if key not in FALLBACK:
                 print("key")
-                Logger.internal_log(f"Missing key {key} from configuration. Replacing with {fallback}")
-                configs[key] = fallback
+                HandleOutput.log_internal_message(
+                    "Specified config uses malformed or corrupted data. Using Fallback")
+                self.configs = FALLBACK
+                return
+
+            fallback = FALLBACK[key]
 
             if isinstance(value, dict) and isinstance(fallback, dict):
-                
+
                 for subkey, subvalue in value.items():
 
-                  
                     if subkey not in fallback:
                         print("Subkey")
-                        Logger.internal_log(f"Missing key {subkey} from configuration. Replacing with {FALLBACK[key][subkey]}")
-                        configs[key][subkey] = FALLBACK[key][subkey]
+                        HandleOutput.log_internal_message(
+                            "Specified config uses malformed or corrupted data. Using Fallback")
+                        self.configs = FALLBACK
+                        return
 
                     subfallback = FALLBACK[key][subkey]
 
                     if isinstance(fallback[subkey], dict):
 
                         if not isinstance(subvalue, type(subfallback)):
-                            Logger.internal_log(f"Encountered TypeError. Expected {type(subfallback)} but found {type(subvalue)}")
+                            HandleOutput.log_internal_message(
+                                f"Encountered TypeError. Expected {type(subfallback)} but found {type(subvalue)}")
                             configs[key][subkey] = subfallback
                             continue
 
                 continue
 
             if not isinstance(value, type(fallback)):
-                Logger.internal_log(f"Encountered TypeError. Expected {type(fallback)} but found {type(value)}")
-                value = fallback
+                HandleOutput.log_internal_message(
+                    f"Encountered TypeError. Expected {type(fallback)} but found {type(value)}")
+                configs[key] = fallback
                 continue
-
-
 
     def validate_log_path(self):
 
@@ -294,89 +281,66 @@ class ConfigHandler:
             with open(path, 'a', encoding='utf-8'):
 
                 self.configs["file_locations"]["log_file_path"] = path
-                Logger.internal_log(f"Log file found or created. Using {path}.")
+                HandleOutput.log_internal_message(
+                    f"Log file found or created. Using {path}.")
 
-        except(FileNotFoundError, PermissionError) as error:
+        except (FileNotFoundError, PermissionError) as error:
 
-            self.config["output_config"]["file"] = False
-            Logger.internal_log(f"Path [{path}] to the log file couldn't be found, or can't be accessed. Disabled file logging", exception_traceback=error)
+            self.configs["output_config"]["file"] = False
+            self.configs["log_rotation_configs"]["log_rotation"] = False
+            HandleOutput.log_internal_message(
+                f"Path [{path}] to the log file couldn't be found, or can't be accessed. Disabled file rotation and logging", exception_traceback=error)
 
-class RotationHandler:
+
+class HandleRotation:
 
     def __init__(self, configs):
         self.configs = configs
 
     def check_rotation_condition(self, full_path, max_size, max_time):
 
-        try:
+        if os.path.getsize(full_path) >= max_size or datetime.now() - datetime.fromtimestamp(os.path.getctime(full_path)) >= timedelta(days=max_time):
+            return True
+        return False
 
-            if os.path.getsize(full_path) >= max_size or datetime.now() - datetime.fromtimestamp(os.path.getctime(full_path)) >= timedelta(days=max_time):
-                return True
-
-        except (FileNotFoundError, PermissionError) as error:
-            Logger.internal_log("An error occured whilst reading file size and creation time", exception_traceback=error)
-            return False
-    
     def rotate_log_path(self):
 
-        Logger.internal_log("Running rotation check")
+        HandleOutput.log_internal_message("Running rotation check")
 
-        if self.check_rotation_condition(self.FILE_LOCATIONS["log_file_path"], 
-        self.LOG_ROTATION["max_byte_size"], 
-        self.LOG_ROTATION["max_day_length"]
-        ):
-            
+        if self.check_rotation_condition(self.FILE_LOCATIONS["log_file_path"],
+                                         self.LOG_ROTATION["max_byte_size"],
+                                         self.LOG_ROTATION["max_day_length"]
+                                         ):
+
             try:
-            
+
                 self.full_rotation()
 
             except (FileNotFoundError, PermissionError) as error:
 
-                Logger.internal_log("An error occured whilst attempting log rotation.", exception_traceback=error)
-            
+                HandleOutput.log_internal_message(
+                    "An error occured whilst attempting log rotation.", exception_traceback=error)
+
     def rename_rotating_log(self, log_file_path):
         archive_name = f"log_archive {datetime.now().strftime('%d_%m_%y %H_%M_%S')}_{random.randint(1000, 9999)}.txt"
 
-        try:
-
-            os.rename(log_file_path, archive_name)
-            Logger.internal_log(f"Log file Archived as {archive_name}.\nArchived file size: {os.path.getsize(archive_name)}\nArchived file age: {os.path.getmtime(archive_name)}.")
-
-        except (FileNotFoundError, PermissionError) as error:
-
-            Logger.internal_log(f"Failed to rename log file at {log_file_path}", exception_traceback=error)
+        os.rename(log_file_path, archive_name)
+        HandleOutput.log_internal_message(
+            f"Log file Archived as {archive_name}.\nArchived file size: {os.path.getsize(archive_name)}\nArchived file age: {os.path.getmtime(archive_name)}.")
 
     def create_fresh_log(self, log_file_path):
 
-        try:
-
-            with open(log_file_path, 'a') as new_log_file:
-                Logger.internal_log(f"Created new file as {new_log_file.name}")
-
-        except PermissionError:
-
-            Logger.internal_log(f"Permission to the new log file at {log_file_path} was denied")
+        with open(log_file_path, 'a') as new_log_file:
+            HandleOutput.log_internal_message(
+                f"Created new file as {new_log_file.name}")
 
     def full_rotation(self):
 
-        is_success = True
-
-        try:
-
-            self.rename_rotating_log(self.configs["file_locations"]["log_file_path"])
-            self.create_fresh_log(self.configs["file_locations"]["log_file_path"])
-
-        except (FileNotFoundError, PermissionError) as error:
-
-            is_success = False
-            Logger.internal_log("An error occurred whilst rotating", exception_traceback=error)
-
-        finally:
-
-            Logger.internal_log(f"Rotation attempt complete. Success: {is_success}")
-
+        self.rename_rotating_log(
+            self.configs["file_locations"]["log_file_path"])
+        self.create_fresh_log(self.configs["file_locations"]["log_file_path"])
 
 
 logger = Logger()
 
-logger.log("Jamie Froom is a japseye", "WARNING")
+logger.log("Test", "ERROR")
