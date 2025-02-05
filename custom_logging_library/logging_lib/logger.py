@@ -244,32 +244,34 @@ class ConfigHandler:
         if configs is None:
             configs = self.configs
 
-        for key, value in configs.items():
-            fallback = ConfigHandler.FALLBACK_CONFIGURATION[key]
+        FALLBACK = ConfigHandler.FALLBACK_CONFIGURATION
 
-            if key not in ConfigHandler.FALLBACK_CONFIGURATION:
-                Logger.internal_log("Specified config file contains malformed data. Using a fallback configuration")
-                self.configs = ConfigHandler.FALLBACK_CONFIGURATION
-                break
+        for key, value in configs.items():
+            fallback = FALLBACK[key]
+
+            if key not in FALLBACK:
+                print("key")
+                Logger.internal_log(f"Missing key {key} from configuration. Replacing with {fallback}")
+                configs[key] = fallback
 
             if isinstance(value, dict) and isinstance(fallback, dict):
                 
                 for subkey, subvalue in value.items():
 
-                    
-                    if isinstance(ConfigHandler.FALLBACK_CONFIGURATION[key][subkey], dict):
-                        if subkey not in ConfigHandler.FALLBACK_CONFIGURATION[key][subkey]:
-                            Logger.internal_log("Specified config file contains malformed data. Using a fallback configuration")
-                            self.configs = ConfigHandler.FALLBACK_CONFIGURATION
-                            break
+                  
+                    if subkey not in fallback:
+                        print("Subkey")
+                        Logger.internal_log(f"Missing key {subkey} from configuration. Replacing with {FALLBACK[key][subkey]}")
+                        configs[key][subkey] = FALLBACK[key][subkey]
 
-                        subfallback = ConfigHandler.FALLBACK_CONFIGURATION[key][subkey]
+                    subfallback = FALLBACK[key][subkey]
 
-                        if not isinstance(subvalue, type(fallback)):
+                    if isinstance(fallback[subkey], dict):
+
+                        if not isinstance(subvalue, type(subfallback)):
                             Logger.internal_log(f"Encountered TypeError. Expected {type(subfallback)} but found {type(subvalue)}")
-                            subvalue = subfallback
+                            configs[key][subkey] = subfallback
                             continue
-
 
                 continue
 
@@ -377,4 +379,4 @@ class RotationHandler:
 
 logger = Logger()
 
-logger.log("Test", "ERROR")
+logger.log("Jamie Froom is a japseye", "WARNING")
