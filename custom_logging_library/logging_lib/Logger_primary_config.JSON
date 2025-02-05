@@ -1,7 +1,8 @@
 {
-    "log_format": {
+    "log_components": {
         "color": true,
         "timestamp": true,
+        "timestamp_format": "%Y-%m-%d / %Hh-%Mm-%Ss",
         "message": true,
         "level": true
     },
@@ -32,20 +33,18 @@
             "traceback": true
         }
     },
-    "file_configs": {
-        "log_file_directory": "D:/GitHub/Repos/Logging/custom_logging_library/logging_lib/Logs",
-        "log_file_path": "log.txt",
-        "archive_folder": "log_archives"
+    "file_locations": {
+        "log_file_path": "{CURRENT_PATH}"
     },
-    "rotation_config": {
-        "log_rotation": true,
+    "log_rotation_configs": {
+        "log_rotation": false,
         "size_rotation": true,
-        "max_byte_size": 5242880,
+        "max_file_size": 5242880,
         "time_rotation": false,
-        "max_day_length": 1
+        "max_file_age": 1
     },
-    "output_config": {
-        "console": true,
+    "output_configs": {
+        "terminal": true,
         "file": true
     }
 }
