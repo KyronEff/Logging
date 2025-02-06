@@ -45,6 +45,6 @@
     },
     "output_configs": {
         "terminal": true,
-        "file": true
+        "file": false
     }
 }

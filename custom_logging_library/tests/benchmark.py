@@ -14,7 +14,7 @@ class timeit_tests:
 
     def __init__(self, n):
 
-        logger.internal_log("Running timeit tests\n")
+        logger.log("Running timeit tests\n", "INTERNAL")
         self.n = n
 
 
@@ -70,11 +70,11 @@ class cProfile_tests:
     def __init__(self, n):
 
         self.n = n
-        logger.internal_log("Running cProfile tests\n")
+        logger.log("Running cProfile tests\n", "INTERNAL")
 
     def cprofile_plaintext_test(self):
         for i in range(self.n):
-            logger.log("Test", "INFO", is_file=True)
+            logger.log("Test", "INFO")
 
     def cprofile_plaintext(self):
         cProfile.runctx('self.cprofile_plaintext_test()', globals=globals(), locals=locals())
@@ -82,7 +82,7 @@ class cProfile_tests:
 timeit_tests = timeit_tests(100)
 cProf = cProfile_tests(1000)
 
-cProf.cprofile_plaintext()
+
 
 
 

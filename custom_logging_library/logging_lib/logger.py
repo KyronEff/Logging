@@ -3,10 +3,6 @@ import os
 import json
 import random
 from datetime import datetime, timedelta
-import asyncio
-import signal
-import sys
-
 
 class Logger:
 
@@ -40,6 +36,8 @@ class CompileLog:
 
     def build_log(self, message, error_level, exception_traceback=None):
 
+        error_level = error_level or "UNKNOWN"
+
         if error_level in self.error_map:
 
             return ''.join([
@@ -48,12 +46,12 @@ class CompileLog:
                 FormatComponents.get_timestamp(
                     self.log_components) if self.log_components["timestamp"] else "",
                 f"[{error_level}] " if self.log_components["level"] else "",
-                f"{message} " if self.log_components["message"] else "",
+                f"{message}" if self.log_components["message"] else "",
                 FormatComponents.get_traceback(
                     exception_traceback) if self.error_map[error_level]["traceback"] and exception_traceback else ""
             ])
 
-        return f"[{error_level}] {message}{f"\n{FormatComponents.get_traceback(exception_traceback)}" if exception_traceback else ""}"
+        return f"[{error_level}] {message}" + (f"\n{FormatComponents.get_traceback(exception_traceback)}" if exception_traceback else "")
 
 
 class FormatComponents:
@@ -343,4 +341,4 @@ class HandleRotation:
 
 logger = Logger()
 
-logger.log("Test", "ERROR")
+logger.log("Test\nNewline", "TEST")
