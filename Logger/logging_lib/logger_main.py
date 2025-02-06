@@ -23,8 +23,7 @@ class Logger:
     def log(self, message, level, exception_traceback=None):
 
         message = self._compiler.build_log(message, level, exception_traceback)
-        self._output.handle_log_output(
-            message, self.configs["file_locations"]["log_file_path"])
+        self._output.handle_log_output(message, self.configs["file_locations"]["log_file_path"])
 
 
 class CompileLog:
@@ -74,9 +73,9 @@ class FormatComponents:
             HandleOutput.log_internal_message("No error was provided")
             return ""
 
-        if isinstance(error, type) and issubclass(error, Exception):
+        if not isinstance(error, Exception):
 
-            error = error("No other information provided")
+            error = error("Error passed with no message")
 
         if not hasattr(error, '__traceback__'):
 
@@ -109,8 +108,7 @@ class HandleOutput:
 
         if exception_traceback:
 
-            print(
-                f"{traceback.format_exception(None, exception_traceback, exception_traceback.__traceback__)}")
+            print(f"{traceback.format_exception(None, exception_traceback, exception_traceback.__traceback__)}")
 
 
 class HandleConfigs:
@@ -185,8 +183,7 @@ class HandleConfigs:
     def __init__(self, config_path):
 
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(
-                __file__), 'Logger_primary_config.JSON')
+            config_path = os.path.join(os.path.dirname(__file__), 'Logger_primary_config.JSON')
 
         HandleOutput.log_internal_message(
             f"Attempting to load configs from {config_path}")
@@ -334,11 +331,15 @@ class HandleRotation:
 
     def full_rotation(self):
 
-        self.rename_rotating_log(
-            self.configs["file_locations"]["log_file_path"])
+        self.rename_rotating_log(self.configs["file_locations"]["log_file_path"])
         self.create_fresh_log(self.configs["file_locations"]["log_file_path"])
 
 
 logger = Logger()
+try:
 
-logger.log("Test\nNewline", "TEST")
+    raise TypeError
+
+except TypeError as error:
+
+    logger.log("Test", "DEBUG", exception_traceback=error)
