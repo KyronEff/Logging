@@ -44,8 +44,14 @@
         "time_rotation": false,
         "max_day_length": 1
     },
+<<<<<<< Updated upstream
     "output_config": {
         "console": true,
         "file": true
+=======
+    "output_configs": {
+        "terminal": true,
+        "file": false
+>>>>>>> Stashed changes
     }
 }
