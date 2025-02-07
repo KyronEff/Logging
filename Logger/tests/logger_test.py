@@ -4,7 +4,7 @@ from datetime import datetime
 
 sys.path.append(r'D:\GitHub\Repos\Logging\custom_logging_library')
 
-from logging_lib.logger import Logger
+from logging_lib.logger_main import Logger
 
 @pytest.fixture
 def logger():

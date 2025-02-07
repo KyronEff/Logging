@@ -3,10 +3,10 @@ import cProfile
 import memory_profiler
 import sys
 
-sys.path.append('D:\GitHub\Repos\Logging\custom_logging_library')
+sys.path.append(r'D:\GitHub\Repos\Logger\Logger')
 
 
-from logging_lib.logger import Logger
+from logging_lib.logger_main import Logger
 
 logger = Logger()
 
@@ -55,9 +55,7 @@ class timeit_tests:
         message = []
 
         tests = (self.bench_timeit_plaintext,
-        self.bench_timeit_plaintext_plainexception,
-        self.bench_timeit_plaintext_withfile,
-        self.bench_timeit_plaintext_plainexception_withfile)
+        self.bench_timeit_plaintext_plainexception)
 
         for function in tests:
             message.append(function())
@@ -79,8 +77,10 @@ class cProfile_tests:
     def cprofile_plaintext(self):
         cProfile.runctx('self.cprofile_plaintext_test()', globals=globals(), locals=locals())
 
-timeit_tests = timeit_tests(100)
-cProf = cProfile_tests(1000)
+timeit_tests = timeit_tests(10000)
+
+timeit_tests.bench()
+
 
 
 

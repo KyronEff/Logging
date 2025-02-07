@@ -2,6 +2,7 @@ import traceback
 import os
 import json
 import random
+import asyncio
 from datetime import datetime, timedelta
 
 class Logger:
@@ -9,16 +10,20 @@ class Logger:
  # initialization function
     _compiler = None
     _output = None
+    stop_rotation = False
 
     def __init__(self, config_path=None):
 
         self.configs = HandleConfigs(config_path).get_valid_config()
 
         if not Logger._compiler:
-            self._compiler = CompileLog(
+            Logger._compiler = CompileLog(
                 self.configs["error_map"], self.configs["log_components"])
         if not Logger._output:
-            self._output = HandleOutput(self.configs["output_configs"])
+            Logger._output = HandleOutput(self.configs["output_configs"])
+
+        self._compiler = Logger._compiler
+        self._output = Logger._output
 
     def log(self, message, level, exception_traceback=None):
 
@@ -63,7 +68,7 @@ class FormatComponents:
     @staticmethod
     def get_timestamp(log_components):
 
-        return f"[{datetime.now().strftime(log_components["timestamp_format"])}]\n"
+        return f"[{datetime.now().strftime(log_components['timestamp_format'])}]\n"
 
     @staticmethod
     def get_traceback(error):
@@ -74,8 +79,12 @@ class FormatComponents:
             return ""
 
         if not isinstance(error, Exception):
+            if callable(error):
 
-            error = error("Error passed with no message")
+                error = error("Error passed with no message")
+            else:
+                HandleOutput.log_internal_message("Invalid error type or message")
+                return ""
 
         if not hasattr(error, '__traceback__'):
 
@@ -227,7 +236,6 @@ class HandleConfigs:
         for key, value in configs.items():
 
             if key not in FALLBACK:
-                print("key")
                 HandleOutput.log_internal_message(
                     "Specified config uses malformed or corrupted data. Using Fallback")
                 self.configs = FALLBACK
@@ -240,7 +248,6 @@ class HandleConfigs:
                 for subkey, subvalue in value.items():
 
                     if subkey not in fallback:
-                        print("Subkey")
                         HandleOutput.log_internal_message(
                             "Specified config uses malformed or corrupted data. Using Fallback")
                         self.configs = FALLBACK
@@ -269,7 +276,7 @@ class HandleConfigs:
         path = self.configs["file_locations"]["log_file_path"]
 
         if path == "{CURRENT_PATH}":
-            path = f"{os.path.dirname(__file__)}\\log.txt"
+            path = os.path.join(os.path.dirname(__file__), "log.txt")
 
         try:
 
@@ -281,7 +288,7 @@ class HandleConfigs:
 
         except (FileNotFoundError, PermissionError) as error:
 
-            self.configs["output_config"]["file"] = False
+            self.configs["output_configs"]["file"] = False
             self.configs["log_rotation_configs"]["log_rotation"] = False
             HandleOutput.log_internal_message(
                 f"Path [{path}] to the log file couldn't be found, or can't be accessed. Disabled file rotation and logging", exception_traceback=error)
@@ -290,7 +297,25 @@ class HandleConfigs:
 class HandleRotation:
 
     def __init__(self, configs):
-        self.configs = configs
+        self.file_path = configs["file_locations"]["log_file_path"]
+        self.log_rotation = configs["log_rotation_configs"]
+
+    async def bg_rotation_check(self, interval=120):
+
+        while not Logger.stop_rotation:
+            self.rotate_log_path()
+
+            await asyncio.sleep(interval)
+
+    def begin_bg_rotation(self):
+
+        if not Logger.stop_rotation:
+            task = asyncio.get_event_loop().create_task(self.bg_rotation_check())
+
+    def break_bg_rotation(self, task):
+
+        if task:
+            asyncio.Event.clear(task)
 
     def check_rotation_condition(self, full_path, max_size, max_time):
 
@@ -302,9 +327,9 @@ class HandleRotation:
 
         HandleOutput.log_internal_message("Running rotation check")
 
-        if self.check_rotation_condition(self.FILE_LOCATIONS["log_file_path"],
-                                         self.LOG_ROTATION["max_byte_size"],
-                                         self.LOG_ROTATION["max_day_length"]
+        if self.check_rotation_condition(self.file_path,
+                                         self.log_rotation["max_file_size"],
+                                         self.log_rotation["max_file_age"]
                                          ):
 
             try:
@@ -331,8 +356,8 @@ class HandleRotation:
 
     def full_rotation(self):
 
-        self.rename_rotating_log(self.configs["file_locations"]["log_file_path"])
-        self.create_fresh_log(self.configs["file_locations"]["log_file_path"])
+        self.rename_rotating_log(self.file_path)
+        self.create_fresh_log(self.file_path)
 
 
 logger = Logger()
