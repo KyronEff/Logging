@@ -1,0 +1,39 @@
+Metadata-Version: 2.2
+Name: pylgx
+Version: 1.2.0
+Summary: A lightweight logging library for Python with features like log rotation and configurable error levels.
+Home-page: https://github.com/KyronEff/Logging
+Author: Kyroneff
+Author-email: Kyronfroom57@gmail.com
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-python
+Dynamic: summary
+
+# Logger
+
+A lightweight logging library for Python with features like log rotation and configurable error levels.
+
+## Installation
+You can install the package using pip:
+
+```bash
+pip install logger
+
+## Basic usage
+
+from logger import Logger
+
+logger = Logger() # Accepts a JSON config file. Uses internal validation
+
+logger.log("This is a log message", "INFO")
